@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 import { NextResponse } from 'next/server';
 import { getFloors, updateFloors } from '@/lib/db';
 
@@ -43,3 +42,4 @@ export async function POST(request: Request) {
   }
 
 }
+
