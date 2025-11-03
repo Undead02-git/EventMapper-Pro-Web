@@ -1,12 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { initializeDatabase } from '@/lib/db';
-
-// Initialize database when the app starts (non-blocking)
-initializeDatabase().catch((error) => {
-  console.error('Failed to initialize database (this is expected in local development):', error);
-});
 
 export const metadata: Metadata = {
   title: 'EventMapper Pro',
