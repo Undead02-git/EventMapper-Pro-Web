@@ -1,4 +1,5 @@
 // src/app/api/init-db/route.ts
+export const runtime = 'edge';
 import { NextResponse } from 'next/server';
 import { initializeDatabase } from '@/lib/db';
 
