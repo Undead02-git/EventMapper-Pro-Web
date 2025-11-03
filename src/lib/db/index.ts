@@ -6,13 +6,14 @@ const FLOORS_KEY = 'eventmapper-floors';
 const TAGS_KEY = 'eventmapper-tags';
 
 // Helper function to get the Edge Config client only when needed
-function getEdgeConfigClient() {
+async function getEdgeConfigClient() {
   try {
     if (process.env.EDGE_CONFIG) {
-      // @ts-ignore
-      const edgeConfigModule = require('@vercel/edge-config');
-      if (edgeConfigModule.edgeConfig) {
-        return { client: edgeConfigModule.edgeConfig, available: true };
+      // Use dynamic import() for better compatibility
+      const edgeConfigModule = await import('@vercel/edge-config');
+      const client = edgeConfigModule.edgeConfig;
+      if (client) {
+        return { client, available: true };
       }
     }
   } catch (error) {
@@ -22,7 +23,7 @@ function getEdgeConfigClient() {
 }
 
 export async function initializeDatabase() {
-  const { client, available } = getEdgeConfigClient();
+  const { client, available } = await getEdgeConfigClient();
   if (!available || !client) {
     console.log('Edge Config not configured or not available for initialization.');
     return;
@@ -33,30 +34,33 @@ export async function initializeDatabase() {
     const floorsExists = await client.get(FLOORS_KEY);
     if (!floorsExists) {
       await client.set(FLOORS_KEY, initialFloors);
-      console.log('Initial floors data inserted');
+      console.log('Initial floors data inserted into Edge Config');
     } else {
-      console.log('Floors data already exists');
+      console.log('Floors data already exists in Edge Config');
     }
 
     const tagsExists = await client.get(TAGS_KEY);
     if (!tagsExists) {
       await client.set(TAGS_KEY, initialTags);
-      console.log('Initial tags data inserted');
+      console.log('Initial tags data inserted into Edge Config');
     } else {
-      console.log('Tags data already exists');
+      console.log('Tags data already exists in Edge Config');
     }
     console.log('Edge Config initialization completed successfully');
+    return { success: true };
   } catch (error) {
     console.error('Error initializing Edge Config:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
 export async function getFloors(): Promise<Floor[]> {
-  const { client, available } = getEdgeConfigClient();
+  const { client, available } = await getEdgeConfigClient();
   if (available && client) {
     try {
       const floors = await client.get<Floor[]>(FLOORS_KEY);
       if (floors) {
+        console.log('Fetched floors from Edge Config');
         return floors;
       }
     } catch (edgeError) {
@@ -69,11 +73,12 @@ export async function getFloors(): Promise<Floor[]> {
 }
 
 export async function getTags(): Promise<Tag[]> {
-  const { client, available } = getEdgeConfigClient();
+  const { client, available } = await getEdgeConfigClient();
   if (available && client) {
     try {
       const tags = await client.get<Tag[]>(TAGS_KEY);
       if (tags) {
+        console.log('Fetched tags from Edge Config');
         return tags;
       }
     } catch (edgeError) {
@@ -86,14 +91,15 @@ export async function getTags(): Promise<Tag[]> {
 }
 
 export async function updateFloors(floors: Floor[]) {
-  const { client, available } = getEdgeConfigClient();
+  const { client, available } = await getEdgeConfigClient();
   if (available && client) {
     try {
       await client.set(FLOORS_KEY, floors);
+      console.log('Successfully updated floors in Edge Config');
       return { success: true };
     } catch (edgeError) {
       console.error('Edge Config set(floors) failed:', edgeError);
-      return { success: false, error: 'Edge Config is not working properly. Please check your Vercel Edge Config setup.' };
+      return { success: false, error: 'Edge Config set operation failed. Check Vercel logs.' };
     }
   } else {
     return { 
@@ -104,14 +110,15 @@ export async function updateFloors(floors: Floor[]) {
 }
 
 export async function updateTags(tags: Tag[]) {
-  const { client, available } = getEdgeConfigClient();
+  const { client, available } = await getEdgeConfigClient();
   if (available && client) {
     try {
       await client.set(TAGS_KEY, tags);
+      console.log('Successfully updated tags in Edge Config');
       return { success: true };
     } catch (edgeError) {
       console.error('Edge Config set(tags) failed:', edgeError);
-      return { success: false, error: 'Edge Config is not working properly. Please check your Vercel Edge Config setup.' };
+      return { success: false, error: 'Edge Config set operation failed. Check Vercel logs.' };
     }
   } else {
     return { 
