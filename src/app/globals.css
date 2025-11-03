@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 0 0% 100%;
+        --foreground: 222 83% 11%;
+        --card: 0 0% 100%;
+        --card-foreground: 222 83% 11%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 222 83% 11%;
+        --primary: 217 91% 60%;
+        --primary-foreground: 210 40% 98%;
+        --secondary: 210 40% 96%;
+        --secondary-foreground: 222 47% 11%;
+        --muted: 210 40% 96%;
+        --muted-foreground: 215 28% 47%;
+        --accent: 347 91% 60%;
+        --accent-foreground: 210 40% 98%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 214 32% 91%;
+        --input: 214 32% 91%;
+        --ring: 217 91% 60%;
+        --chart-1: 217 91% 60%;
+        --chart-2: 166 77% 50%;
+        --chart-3: 347 91% 60%;
+        --chart-4: 43 91% 60%;
+        --chart-5: 29 91% 60%;
+        --radius: 0.5rem;
+    }
+
+    .dark {
+        --background: 222 83% 11%;
+        --foreground: 210 40% 98%;
+        --card: 222 83% 11%;
+        --card-foreground: 210 40% 98%;
+        --popover: 222 83% 11%;
+        --popover-foreground: 210 40% 98%;
+        --primary: 217 91% 60%;
+        --primary-foreground: 210 40% 98%;
+        --secondary: 217 33% 17%;
+        --secondary-foreground: 210 40% 98%;
+        --muted: 217 33% 17%;
+        --muted-foreground: 215 25% 65%;
+        --accent: 347 91% 60%;
+        --accent-foreground: 210 40% 98%;
+        --destructive: 0 63% 31%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 217 33% 17%;
+        --input: 217 33% 17%;
+        --ring: 217 91% 60%;
+        --chart-1: 217 91% 60%;
+        --chart-2: 166 77% 50%;
+        --chart-3: 347 91% 60%;
+        --chart-4: 43 91% 60%;
+        --chart-5: 29 91% 60%;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+        font-feature-settings: "rlig" 1, "calt" 1;
+    }
+}
+
+@layer components {
+    /* Apply these styles ONLY during the PDF capture to ensure a tight image. */
+    #map-container-for-export.pdf-export-capture {
+        @apply !absolute !top-0 !left-0 !p-0 !m-0;
+        width: 800px !important;
+        height: auto !important;
+        aspect-ratio: 1 / 1;
+    }
+
+        /* Ensure the SVG inside the container fills it and transforms are reset */
+        #map-container-for-export.pdf-export-capture svg {
+            @apply !transform-none !w-full !h-full;
+        }
+}
