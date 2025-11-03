@@ -1,100 +1,96 @@
 // src/lib/db/index.ts
-import { Floor, Tag } from '@/lib/types';
+import { sql } from '@vercel/postgres';
 import { floors as initialFloors, tags as initialTags } from '@/lib/initial-data';
+import { Floor, Tag } from '@/lib/types';
 
-const FLOORS_KEY = 'eventmapper-floors';
-const TAGS_KEY = 'eventmapper-tags';
-
-// Helper function to get the Edge Config client only when needed
-async function getEdgeConfigClient() {
+// Helper to create tables if they don't exist
+async function initializeDatabase() {
   try {
-    if (process.env.EDGE_CONFIG) {
-      const edgeConfigModule = await import('@vercel/edge-config');
-      const client = edgeConfigModule.edgeConfig;
-      if (client) {
-        return { client, available: true };
-      }
+    await sql`
+      CREATE TABLE IF NOT EXISTS event_tags (
+        id INTEGER PRIMARY KEY,
+        tags_data JSONB NOT NULL
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS event_floors (
+        id INTEGER PRIMARY KEY,
+        floors_data JSONB NOT NULL
+      );
+    `;
+    
+    // Check if data exists, if not, insert it.
+    const tagsResult = await sql`SELECT 1 FROM event_tags WHERE id = 1;`;
+    if (tagsResult.rowCount === 0) {
+      await sql`INSERT INTO event_tags (id, tags_data) VALUES (1, ${JSON.stringify(initialTags)});`;
+      console.log('Initial tags inserted into Postgres');
+    }
+
+    const floorsResult = await sql`SELECT 1 FROM event_floors WHERE id = 1;`;
+    if (floorsResult.rowCount === 0) {
+      await sql`INSERT INTO event_floors (id, floors_data) VALUES (1, ${JSON.stringify(initialFloors)});`;
+      console.log('Initial floors inserted into Postgres');
     }
   } catch (error) {
-    console.error('Failed to load Edge Config module:', error);
+    console.error('Error initializing Postgres DB:', error);
   }
-  return { client: null, available: false };
 }
 
+// Run initialization. This is safe to run on every cold boot.
+initializeDatabase();
+
 export async function getFloors(): Promise<Floor[]> {
-  const { client, available } = await getEdgeConfigClient();
-  if (available && client) {
-    try {
-      // Get the wrapper object, then return the .data array
-      const result = await client.get<{ data: Floor[] }>(FLOORS_KEY);
-      if (result && result.data) {
-        console.log('Fetched floors from Edge Config');
-        return result.data;
-      }
-    } catch (edgeError) {
-      console.error('Edge Config getFloors failed:', edgeError);
+  try {
+    const result = await sql`SELECT floors_data FROM event_floors WHERE id = 1;`;
+    if (result.rowCount > 0) {
+      return result.rows[0].floors_data as Floor[];
     }
+    return initialFloors;
+  } catch (error) {
+    console.error('Failed to fetch floors from Postgres:', error);
+    return initialFloors;
   }
-  
-  console.log('Falling back to initial-data for floors');
-  return initialFloors;
 }
 
 export async function getTags(): Promise<Tag[]> {
-  const { client, available } = await getEdgeConfigClient();
-  if (available && client) {
-    try {
-      // Get the wrapper object, then return the .data array
-      const result = await client.get<{ data: Tag[] }>(TAGS_KEY);
-      if (result && result.data) {
-        console.log('Fetched tags from Edge Config');
-        return result.data;
-      }
-    } catch (edgeError) {
-      console.error('Edge Config getTags failed:', edgeError);
+  try {
+    const result = await sql`SELECT tags_data FROM event_tags WHERE id = 1;`;
+    if (result.rowCount > 0) {
+      return result.rows[0].tags_data as Tag[];
     }
+    return initialTags;
+  } catch (error) {
+    console.error('Failed to fetch tags from Postgres:', error);
+    return initialTags;
   }
-
-  console.log('Falling back to initial-data for tags');
-  return initialTags;
 }
 
 export async function updateFloors(floors: Floor[]) {
-  const { client, available } = await getEdgeConfigClient();
-  if (available && client) {
-    try {
-      // Wrap the floors array in a 'data' object before saving
-      await client.set(FLOORS_KEY, { data: floors });
-      console.log('Successfully updated floors in Edge Config');
-      return { success: true };
-    } catch (edgeError) {
-      console.error('Edge Config set(floors) failed:', edgeError);
-      return { success: false, error: 'Edge Config set operation failed. Check Vercel logs.' };
-    }
-  } else {
-    return { 
-      success: false, 
-      error: 'Data persistence is not available. Edge Config is required for saving data.' 
-    };
+  try {
+    await sql`
+      INSERT INTO event_floors (id, floors_data) 
+      VALUES (1, ${JSON.stringify(floors)})
+      ON CONFLICT (id) 
+      DO UPDATE SET floors_data = ${JSON.stringify(floors)};
+    `;
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating floors in Postgres:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
 export async function updateTags(tags: Tag[]) {
-  const { client, available } = await getEdgeConfigClient();
-  if (available && client) {
-    try {
-      // Wrap the tags array in a 'data' object before saving
-      await client.set(TAGS_KEY, { data: tags });
-      console.log('Successfully updated tags in Edge Config');
-      return { success: true };
-    } catch (edgeError) {
-      console.error('Edge Config set(tags) failed:', edgeError);
-      return { success: false, error: 'Edge Config set operation failed. Check Vercel logs.' };
-    }
-  } else {
-    return { 
-      success: false, 
-      error: 'Data persistence is not available. Edge Config is required for saving data.' 
-    };
+  try {
+    await sql`
+      INSERT INTO event_tags (id, tags_data) 
+      VALUES (1, ${JSON.stringify(tags)})
+      ON CONFLICT (id) 
+      DO UPDATE SET tags_data = ${JSON.stringify(tags)};
+    `;
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating tags in Postgres:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
