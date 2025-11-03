@@ -7,6 +7,8 @@ import { Floor, Tag } from '@/lib/types';
 // the POSTGRES_URL and PGSSLMODE environment variables.
 const pool = new Pool({
   connectionString: process.env.POSTGRES_URL
+  // The ?sslmode=require in the connection string
+  // now handles the SSL connection.
 });
 
 // This promise will resolve once the DB is initialized.
@@ -115,3 +117,4 @@ export async function updateTags(tags: Tag[]) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
+
