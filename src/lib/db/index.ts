@@ -17,12 +17,10 @@ const pool = new Pool({
 let initializationPromise: Promise<void> | null = null;
 
 async function initializeDatabase() {
-  // If the promise already exists, just wait for it to finish
   if (initializationPromise) {
     return initializationPromise;
   }
 
-  // Create a new promise and store it, so this code only runs once
   initializationPromise = (async () => {
     try {
       console.log('Running database initialization with pg...');
@@ -53,7 +51,7 @@ async function initializeDatabase() {
       console.log('Database initialization complete.');
     } catch (error) {
       console.error('Error initializing Postgres DB:', error);
-      // We must throw here so the API call fails, otherwise it will try to use a non-existent table
+      initializationPromise = null; // Reset promise on failure to allow retry
       throw new Error(`Database initialization failed: ${error}`);
     }
   })();
