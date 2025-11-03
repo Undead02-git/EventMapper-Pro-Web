@@ -1,172 +1,122 @@
-// Use dynamic import to avoid TypeScript issues and runtime errors
-let edgeConfig: any = null;
-let edgeConfigAvailable = false;
+// src/lib/db/index.ts
+import { Floor, Tag } from '@/lib/types';
+import { floors as initialFloors, tags as initialTags } from '@/lib/initial-data';
 
-// Try to import and initialize edgeConfig
-try {
-  if (process.env.EDGE_CONFIG) {
-    // @ts-ignore
-    const edgeConfigModule = require('@vercel/edge-config');
-    edgeConfig = edgeConfigModule.edgeConfig;
-    edgeConfigAvailable = !!edgeConfig;
-    console.log('Edge Config module loaded successfully');
-  } else {
-    console.log('EDGE_CONFIG environment variable not set');
-  }
-} catch (error) {
-  console.log('Edge Config not available or failed to load:', error);
-}
-
-// Keys for Edge Config
 const FLOORS_KEY = 'eventmapper-floors';
 const TAGS_KEY = 'eventmapper-tags';
 
-// Check if we're running on the server or client
-const isServer = typeof window === 'undefined';
+// Helper function to get the Edge Config client only when needed
+function getEdgeConfigClient() {
+  try {
+    if (process.env.EDGE_CONFIG) {
+      // @ts-ignore
+      const edgeConfigModule = require('@vercel/edge-config');
+      if (edgeConfigModule.edgeConfig) {
+        return { client: edgeConfigModule.edgeConfig, available: true };
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load Edge Config module:', error);
+  }
+  return { client: null, available: false };
+}
 
 export async function initializeDatabase() {
+  const { client, available } = getEdgeConfigClient();
+  if (!available || !client) {
+    console.log('Edge Config not configured or not available for initialization.');
+    return;
+  }
+
   try {
-    // Check if Edge Config environment variables are set and available
-    const hasEdgeConfig = process.env.EDGE_CONFIG && edgeConfigAvailable;
-    
-    if (!hasEdgeConfig) {
-      console.log('Edge Config not configured or not available.');
-      return;
-    }
-
     console.log('Initializing Edge Config data...');
-    
-    // Check if we have initial data
-    const floorsExists = await edgeConfig.get(FLOORS_KEY);
-    const tagsExists = await edgeConfig.get(TAGS_KEY);
-
-    // If no data exists, insert initial data
+    const floorsExists = await client.get(FLOORS_KEY);
     if (!floorsExists) {
-      const { floors } = await import('@/lib/initial-data');
-      await edgeConfig.set(FLOORS_KEY, floors);
+      await client.set(FLOORS_KEY, initialFloors);
       console.log('Initial floors data inserted');
     } else {
       console.log('Floors data already exists');
     }
 
+    const tagsExists = await client.get(TAGS_KEY);
     if (!tagsExists) {
-      const { tags } = await import('@/lib/initial-data');
-      await edgeConfig.set(TAGS_KEY, tags);
+      await client.set(TAGS_KEY, initialTags);
       console.log('Initial tags data inserted');
     } else {
       console.log('Tags data already exists');
     }
-
     console.log('Edge Config initialization completed successfully');
   } catch (error) {
     console.error('Error initializing Edge Config:', error);
   }
 }
 
-export async function getFloors() {
-  try {
-    // Check if Edge Config is available
-    const hasEdgeConfig = process.env.EDGE_CONFIG && edgeConfigAvailable;
-    
-    if (hasEdgeConfig) {
-      try {
-        const floors = await edgeConfig.get(FLOORS_KEY);
-        if (floors) {
-          return floors;
-        }
-      } catch (edgeError) {
-        console.error('Edge Config get failed:', edgeError);
+export async function getFloors(): Promise<Floor[]> {
+  const { client, available } = getEdgeConfigClient();
+  if (available && client) {
+    try {
+      const floors = await client.get<Floor[]>(FLOORS_KEY);
+      if (floors) {
+        return floors;
       }
+    } catch (edgeError) {
+      console.error('Edge Config getFloors failed:', edgeError);
     }
-    
-    // Return initial data as fallback
-    const { floors } = await import('@/lib/initial-data');
-    return floors;
-  } catch (error) {
-    console.error('Error fetching floors:', error);
-    // Return initial data as fallback
-    const { floors } = await import('@/lib/initial-data');
-    return floors;
+  }
+  
+  console.log('Falling back to initial-data for floors');
+  return initialFloors;
+}
+
+export async function getTags(): Promise<Tag[]> {
+  const { client, available } = getEdgeConfigClient();
+  if (available && client) {
+    try {
+      const tags = await client.get<Tag[]>(TAGS_KEY);
+      if (tags) {
+        return tags;
+      }
+    } catch (edgeError) {
+      console.error('Edge Config getTags failed:', edgeError);
+    }
+  }
+
+  console.log('Falling back to initial-data for tags');
+  return initialTags;
+}
+
+export async function updateFloors(floors: Floor[]) {
+  const { client, available } = getEdgeConfigClient();
+  if (available && client) {
+    try {
+      await client.set(FLOORS_KEY, floors);
+      return { success: true };
+    } catch (edgeError) {
+      console.error('Edge Config set(floors) failed:', edgeError);
+      return { success: false, error: 'Edge Config is not working properly. Please check your Vercel Edge Config setup.' };
+    }
+  } else {
+    return { 
+      success: false, 
+      error: 'Data persistence is not available. Edge Config is required for saving data. Please contact the administrator to set up Edge Config in Vercel.' 
+    };
   }
 }
 
-export async function getTags() {
-  try {
-    // Check if Edge Config is available
-    const hasEdgeConfig = process.env.EDGE_CONFIG && edgeConfigAvailable;
-    
-    if (hasEdgeConfig) {
-      try {
-        const tags = await edgeConfig.get(TAGS_KEY);
-        if (tags) {
-          return tags;
-        }
-      } catch (edgeError) {
-        console.error('Edge Config get failed:', edgeError);
-      }
+export async function updateTags(tags: Tag[]) {
+  const { client, available } = getEdgeConfigClient();
+  if (available && client) {
+    try {
+      await client.set(TAGS_KEY, tags);
+      return { success: true };
+    } catch (edgeError) {
+      console.error('Edge Config set(tags) failed:', edgeError);
+      return { success: false, error: 'Edge Config is not working properly. Please check your Vercel Edge Config setup.' };
     }
-    
-    // Return initial data as fallback
-    const { tags } = await import('@/lib/initial-data');
-    return tags;
-  } catch (error) {
-    console.error('Error fetching tags:', error);
-    // Return initial data as fallback
-    const { tags } = await import('@/lib/initial-data');
-    return tags;
-  }
-}
-
-export async function updateFloors(floors: any) {
-  try {
-    // Check if Edge Config is available
-    const hasEdgeConfig = process.env.EDGE_CONFIG && edgeConfigAvailable;
-    
-    if (hasEdgeConfig) {
-      try {
-        await edgeConfig.set(FLOORS_KEY, floors);
-        return { success: true };
-      } catch (edgeError) {
-        console.error('Edge Config set failed:', edgeError);
-        return { success: false, error: 'Edge Config is not working properly. Please check your Vercel Edge Config setup.' };
-      }
-    } else {
-      // Without Edge Config, we cannot save on the server
-      // Return a specific error message
-      return { 
-        success: false, 
-        error: 'Data persistence is not available. Edge Config is required for saving data. Please contact the administrator to set up Edge Config in Vercel.' 
-      };
-    }
-  } catch (error) {
-    console.error('Error updating floors:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-}
-
-export async function updateTags(tags: any) {
-  try {
-    // Check if Edge Config is available
-    const hasEdgeConfig = process.env.EDGE_CONFIG && edgeConfigAvailable;
-    
-    if (hasEdgeConfig) {
-      try {
-        await edgeConfig.set(TAGS_KEY, tags);
-        return { success: true };
-      } catch (edgeError) {
-        console.error('Edge Config set failed:', edgeError);
-        return { success: false, error: 'Edge Config is not working properly. Please check your Vercel Edge Config setup.' };
-      }
-    } else {
-      // Without Edge Config, we cannot save on the server
-      // Return a specific error message
-      return { 
-        success: false, 
-        error: 'Data persistence is not available. Edge Config is required for saving data. Please contact the administrator to set up Edge Config in Vercel.' 
-      };
-    }
-  } catch (error) {
-    console.error('Error updating tags:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  } else {
+    return { 
+      success: false, 
+      error: 'Data persistence is not available. Edge Config is required for saving data. Please contact the administrator to set up Edge Config in Vercel.' 
+    };
   }
 }
