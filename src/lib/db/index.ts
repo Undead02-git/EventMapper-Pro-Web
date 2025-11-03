@@ -4,13 +4,9 @@ import { floors as initialFloors, tags as initialTags } from '@/lib/initial-data
 import { Floor, Tag } from '@/lib/types';
 
 // Create a new pool. It will automatically find and use
-// the POSTGRES_URL environment variable you set in Vercel.
+// the POSTGRES_URL and PGSSLMODE environment variables.
 const pool = new Pool({
-  connectionString: process.env.POSTGRES_URL,
-  // This is required for Vercel functions to connect to Supabase
-  ssl: {
-    rejectUnauthorized: false
-  }
+  connectionString: process.env.POSTGRES_URL
 });
 
 // This promise will resolve once the DB is initialized.
@@ -52,6 +48,7 @@ async function initializeDatabase() {
     } catch (error) {
       console.error('Error initializing Postgres DB:', error);
       initializationPromise = null; // Reset promise on failure to allow retry
+      // We must throw here so the API call fails, otherwise it will try to use a non-existent table
       throw new Error(`Database initialization failed: ${error}`);
     }
   })();
